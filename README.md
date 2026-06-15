@@ -46,21 +46,15 @@ npm run preview
 | Drive (link) | Browser fetches `files.get?alt=media` directly from Google |
 | Drive (Browse) | Google Identity Services token + Google Picker, read-only scope |
 
-### Single-thread vs multi-thread encoder
+### Encoder core
 
-The app ships **both** ffmpeg cores and picks at runtime:
+The app uses the **single-thread** ffmpeg core. It needs no `SharedArrayBuffer` /
+cross-origin isolation, so it runs anywhere — including **GitHub Pages**, which can't
+send `COOP`/`COEP` headers — and never interferes with the Google Picker (cross-origin
+isolation would block Google's Picker scripts). Short clips encode in a few seconds.
 
-- **Multi-thread** (faster) loads only when the page is *cross-origin isolated*
-  (`crossOriginIsolated === true`), which requires `COOP`/`COEP` response headers.
-  `npm run dev` and `npm run preview` set these automatically.
-- **Single-thread** is used otherwise — including on **GitHub Pages**, which cannot send
-  those headers. This is intentional: cross-origin isolation would block Google's Picker
-  scripts, so single-thread keeps Drive Browse working. Short clips encode fine either way.
-
-> If you self-host behind a server that sends `COOP: same-origin` + `COEP: require-corp`
-> and you don't need the Picker, you'll automatically get the faster multi-thread core.
-> A `public/coi-serviceworker.js`-style shim is intentionally **not** enabled by default
-> because it breaks the Picker.
+> The multi-thread core was intentionally dropped: it requires cross-origin isolation
+> (which breaks the Picker) and loaded unreliably across browser/worker environments.
 
 ## Google Drive setup (optional)
 
@@ -125,7 +119,7 @@ A `.nojekyll` file is included so the `ffmpeg/` assets are served intact.
 
 ```
 src/
-  lib/ffmpeg.ts      # core loading (mt/st pick) + GIF/MP4 export commands
+  lib/ffmpeg.ts      # single-thread core loading + GIF/MP4 export commands
   lib/drive.ts       # Drive link parsing, API-key fetch, OAuth + Picker
   lib/time.ts        # timecode parsing/formatting
   hooks/useFfmpeg.ts # lazy load, progress, export wrapper

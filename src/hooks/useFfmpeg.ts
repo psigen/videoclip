@@ -1,11 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import {
-  coreKind,
-  exportClip,
-  loadFfmpeg,
-  type ExportOptions,
-  type ExportResult,
-} from '../lib/ffmpeg';
+import { exportClip, loadFfmpeg, type ExportOptions, type ExportResult } from '../lib/ffmpeg';
 
 interface ExportArgs {
   file: File | Blob;
@@ -16,7 +10,6 @@ interface ExportArgs {
 }
 
 export interface UseFfmpeg {
-  coreKind: typeof coreKind;
   busy: boolean;
   progress: number; // 0..1
   status: string;
@@ -58,7 +51,9 @@ export function useFfmpeg(): UseFfmpeg {
       setStatus('Done');
       return result;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Export failed.');
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[videoclip] export failed:', err);
+      setError(message || 'Export failed.');
       setStatus('');
       return null;
     } finally {
@@ -66,5 +61,5 @@ export function useFfmpeg(): UseFfmpeg {
     }
   }, []);
 
-  return { coreKind, busy, progress, status, error, run, preload };
+  return { busy, progress, status, error, run, preload };
 }
