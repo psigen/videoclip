@@ -61,11 +61,9 @@ export function App() {
       )}
 
       <footer>
-        <span>Encoder: {ffmpeg.coreKind === 'mt' ? 'multi-thread' : 'single-thread'}</span>
-        <span aria-hidden>·</span>
         <a href="#/privacy">Privacy</a>
         <span aria-hidden>·</span>
-        <span>100% client-side</span>
+        <span>100% client-side · nothing is uploaded</span>
       </footer>
     </div>
   );

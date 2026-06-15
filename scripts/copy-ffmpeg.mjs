@@ -8,15 +8,19 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(fileURLToPath(import.meta.url)) + '/..';
 const nm = join(root, 'node_modules');
 
-// Single-thread core -> public/ffmpeg/st, multi-thread core -> public/ffmpeg/mt.
+// Single-thread core -> public/ffmpeg/. (We don't ship the multi-thread core: it
+// needs cross-origin isolation, which breaks the Google Picker, and loaded
+// unreliably — see src/lib/ffmpeg.ts.)
 const cores = [
-  { pkg: '@ffmpeg/core', dest: 'st', files: ['ffmpeg-core.js', 'ffmpeg-core.wasm'] },
-  { pkg: '@ffmpeg/core-mt', dest: 'mt', files: ['ffmpeg-core.js', 'ffmpeg-core.wasm', 'ffmpeg-core.worker.js'] },
+  { pkg: '@ffmpeg/core', dest: '.', files: ['ffmpeg-core.js', 'ffmpeg-core.wasm'] },
 ];
 
-// The umd build is the one compatible with @ffmpeg/util's toBlobURL loader.
+// Serve the ESM build: @ffmpeg/ffmpeg runs its worker as a module worker, where
+// importScripts() is unavailable, so it loads the core via `await import(coreURL)`
+// and reads the `default` export — which only the ESM build provides (the UMD build
+// has no default export, causing "failed to import ffmpeg-core.js").
 function findDistDir(pkgDir) {
-  for (const candidate of ['dist/umd', 'dist/esm', 'dist']) {
+  for (const candidate of ['dist/esm', 'dist/umd', 'dist']) {
     const p = join(pkgDir, candidate);
     if (existsSync(p)) return p;
   }
