@@ -22,8 +22,8 @@ Using [Nix](https://nixos.org/)? A flake provides the Node toolchain — drop in
 shell first, then run the npm commands inside it:
 
 ```bash
-nix develop        # shell with Node 20 (pinned via flake.lock)
-# or, one-off:  nix shell nixpkgs#nodejs_20
+nix develop        # shell with Node 22 (pinned via flake.lock)
+# or, one-off:  nix shell nixpkgs#nodejs_22
 ```
 
 Then drop in a video, set the start/end, and export. No configuration is required for

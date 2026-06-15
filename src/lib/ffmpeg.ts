@@ -147,7 +147,7 @@ export async function exportClip(req: ExportRequest): Promise<ExportResult> {
       written.push(outName);
 
       const data = await ffmpeg.readFile(outName);
-      const blob = new Blob([data as Uint8Array], { type: 'image/gif' });
+      const blob = new Blob([new Uint8Array(data as Uint8Array)], { type: 'image/gif' });
       return { blob, fileName: outName, url: URL.createObjectURL(blob) };
     }
 
@@ -176,7 +176,7 @@ export async function exportClip(req: ExportRequest): Promise<ExportResult> {
     written.push(outName);
 
     const data = await ffmpeg.readFile(outName);
-    const blob = new Blob([data as Uint8Array], { type: 'video/mp4' });
+    const blob = new Blob([new Uint8Array(data as Uint8Array)], { type: 'video/mp4' });
     return { blob, fileName: outName, url: URL.createObjectURL(blob) };
   } finally {
     if (progressHandler) ffmpeg.off('progress', progressHandler);

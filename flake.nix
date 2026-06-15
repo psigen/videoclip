@@ -12,7 +12,7 @@
       devShells = forAllSystems (pkgs: {
         # `nix develop` -> shell with the project's Node toolchain.
         default = pkgs.mkShell {
-          packages = [ pkgs.nodejs_20 ];
+          packages = [ pkgs.nodejs_22 ];
           shellHook = ''
             echo "videoclip dev shell — node $(node --version), npm $(npm --version)"
           '';
