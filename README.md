@@ -104,6 +104,19 @@ present.
 5. If using Drive, add that exact origin to the OAuth client's **Authorized JavaScript
    origins** (step 3 above).
 
+### Setting the `VITE_*` env vars on Pages
+
+1. Go to **Settings → Secrets and variables → Actions → New repository secret**.
+2. Add each value as a secret using the **exact** name: `VITE_GOOGLE_CLIENT_ID` and/or
+   `VITE_GOOGLE_API_KEY`. (Only `VITE_`-prefixed names reach the app.)
+3. Trigger a build — push to `main`, or run the workflow manually (Actions → Deploy to
+   GitHub Pages → Run workflow). The workflow passes the secrets to `npm run build`.
+4. To change a value later, edit the secret and **re-run the workflow** — values are
+   baked in at build time, so they don't update without a rebuild.
+
+> ⚠️ These values are **inlined into the public JS bundle**. That's fine for a Google API
+> key / OAuth client id (domain-restricted, not secret) — never put a real secret here.
+
 `base` is set to `./` so it works under a project path or a custom domain with no edits.
 A `.nojekyll` file is included so the `ffmpeg/` assets are served intact.
 
