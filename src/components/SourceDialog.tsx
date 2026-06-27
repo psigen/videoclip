@@ -1,19 +1,58 @@
-import { useRef, useState } from 'react';
-import { hasPicker } from '../config';
-import { browseDrive, fetchPublicDriveFile, parseDriveId } from '../lib/drive';
+import { useEffect, useRef, useState } from 'react';
+import { hasDriveOAuth } from '../config';
+import {
+  fetchDirectUrl,
+  fetchPrivateDriveFile,
+  fetchPublicDriveFile,
+  parseDriveId,
+  parseHttpUrl,
+  probeDriveAccess,
+  type DriveAccess,
+} from '../lib/drive';
 import type { VideoSource } from '../types';
 
 interface Props {
   onLoaded: (source: VideoSource) => void;
 }
 
+// Classification of the pasted link, used for both the button label and which download runs:
+// 'idle' (empty/unrecognized), 'checking' (Drive probe in flight), a resolved Drive `DriveAccess`,
+// or 'direct' (a non-Drive http(s) URL fetched as-is).
+type LinkAccess = 'idle' | 'checking' | 'direct' | DriveAccess;
+
 export function SourceDialog({ onLoaded }: Props) {
   const [link, setLink] = useState('');
+  const [linkAccess, setLinkAccess] = useState<LinkAccess>('idle');
   const [busy, setBusy] = useState<null | string>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // Classify the link (public vs private) at paste time, debounced. Doing this off the click path
+  // is what makes the OAuth popup reliable: loadFromLink already knows the answer, so it can call
+  // getAccessToken() synchronously within the click (see loadFromLink / lib/drive.ts).
+  useEffect(() => {
+    setError(null); // a fresh link supersedes any error from a previous attempt
+    const id = parseDriveId(link);
+    if (!id) {
+      // Not a Drive link: a plain media URL needs no probe (no OAuth), anything else is unrecognized.
+      setLinkAccess(parseHttpUrl(link) ? 'direct' : 'idle');
+      return;
+    }
+    setLinkAccess('checking');
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      const access = await probeDriveAccess(id, controller.signal);
+      if (!controller.signal.aborted) setLinkAccess(access);
+    }, 400);
+    // Runs on every link change (and unmount): cancel a not-yet-fired probe and abort an in-flight
+    // one, so at most one probe is ever outstanding and a stale response can't win.
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [link]);
 
   function acceptFile(file: File) {
     setError(null);
@@ -23,14 +62,22 @@ export function SourceDialog({ onLoaded }: Props) {
   async function loadFromLink() {
     setError(null);
     const id = parseDriveId(link);
-    if (!id) {
-      setError('That does not look like a Google Drive link or file id.');
+    const url = id ? null : parseHttpUrl(link);
+    if (!id && !url) {
+      setError('Enter a Google Drive link or a direct video URL.');
       return;
     }
-    setBusy('Downloading from Drive…');
+    const isPrivate = linkAccess === 'private';
+    setBusy(isPrivate ? 'Signing in to Google Drive…' : 'Downloading…');
     setProgress(0);
     try {
-      const { blob, name } = await fetchPublicDriveFile(id, setProgress);
+      // Branch synchronously on the pre-computed access so the private path's getAccessToken() is
+      // the first await — fresh user activation keeps its sign-in popup from being blocked.
+      const { blob, name } = id
+        ? isPrivate
+          ? await fetchPrivateDriveFile(id, setProgress)
+          : await fetchPublicDriveFile(id, setProgress)
+        : await fetchDirectUrl(url!, setProgress);
       onLoaded({ file: blob, name, url: URL.createObjectURL(blob) });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load that link.');
@@ -39,21 +86,8 @@ export function SourceDialog({ onLoaded }: Props) {
     }
   }
 
-  async function loadFromPicker() {
-    setError(null);
-    setBusy('Opening Google Drive…');
-    setProgress(0);
-    try {
-      const picked = await browseDrive(setProgress);
-      if (picked) {
-        onLoaded({ file: picked.blob, name: picked.name, url: URL.createObjectURL(picked.blob) });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google Drive browse failed.');
-    } finally {
-      setBusy(null);
-    }
-  }
+  // A private Drive file was detected but this site has no OAuth client id, so it can't be opened.
+  const privateBlocked = linkAccess === 'private' && !hasDriveOAuth;
 
   return (
     <section className="card source">
@@ -93,12 +127,12 @@ export function SourceDialog({ onLoaded }: Props) {
         />
       </div>
 
-      <div className="divider"><span>or from Google Drive</span></div>
+      <div className="divider"><span>or from a link</span></div>
 
       <div className="drive-row">
         <input
           type="url"
-          placeholder="Paste a Google Drive share link…"
+          placeholder="Paste a Google Drive link or a direct video URL…"
           value={link}
           onChange={(e) => setLink(e.target.value)}
           onKeyDown={(e) => {
@@ -106,14 +140,12 @@ export function SourceDialog({ onLoaded }: Props) {
           }}
           disabled={!!busy}
         />
-        <button onClick={loadFromLink} disabled={!!busy || link.trim() === ''}>
-          Load link
+        <button
+          onClick={loadFromLink}
+          disabled={!!busy || link.trim() === '' || linkAccess === 'checking' || privateBlocked}
+        >
+          {linkAccess === 'private' && hasDriveOAuth ? '🔒 Sign in & Load' : 'Load'}
         </button>
-        {hasPicker && (
-          <button className="secondary" onClick={loadFromPicker} disabled={!!busy}>
-            Browse…
-          </button>
-        )}
       </div>
 
       {busy && (
@@ -125,10 +157,23 @@ export function SourceDialog({ onLoaded }: Props) {
         </div>
       )}
       {error && <p className="error">{error}</p>}
-      {!hasPicker && (
+      {privateBlocked && (
+        <p className="error">
+          That looks like a private Drive file, and this site isn’t set up for Google sign-in.
+          Download the file and drag it in, or use a link shared “Anyone with the link.”
+        </p>
+      )}
+      {hasDriveOAuth ? (
         <p className="hint">
-          Tip: the “Browse” button appears once a Google OAuth client id is configured.
-          Pasted links work for files shared “Anyone with the link.” Local files always work.
+          Tip: paste a direct video URL, or a Drive link — Drive links open <strong>private</strong>{' '}
+          files you can access too (you’ll sign in to Google once), while public files load without
+          signing in.
+        </p>
+      ) : (
+        <p className="hint">
+          Tip: paste a direct video URL, or a Drive link shared “Anyone with the link.” Opening
+          <strong> private</strong> Drive files needs a Google OAuth client id configured. Local
+          files always work.
         </p>
       )}
     </section>
