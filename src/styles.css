@@ -53,6 +53,23 @@ header h1 {
   font-size: 17px;
 }
 
+.editing-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.editing-bar .back-button {
+  flex: none;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.editing-bar .filename {
+  margin: 0;
+}
+
 .filename {
   color: var(--muted);
   margin: 0 0 10px;
@@ -137,7 +154,8 @@ input[type='number'],
   padding: 8px 10px;
 }
 
-button {
+button,
+a.primary {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -243,6 +261,13 @@ button.link {
   margin-top: 8px;
 }
 
+/* Fixed width so the button doesn't resize between "Play selection" and "Pause". */
+.play-toggle {
+  min-width: 170px;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -323,6 +348,12 @@ button.link {
   border-radius: 8px;
   margin: 8px 0;
   background: #000;
+}
+
+.result .download {
+  display: block;
+  width: fit-content;
+  margin-top: 4px;
 }
 
 /* --- Misc --- */

@@ -27,6 +27,16 @@ export function App() {
     setEnd(0);
   }
 
+  function clearSource() {
+    setSource((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setDuration(0);
+    setStart(0);
+    setEnd(0);
+  }
+
   function onDuration(d: number) {
     setDuration(d);
     setStart(0);
@@ -42,11 +52,16 @@ export function App() {
         </p>
       </header>
 
-      <SourceDialog onLoaded={loadSource} />
+      {!source && <SourceDialog onLoaded={loadSource} />}
 
       {source && (
         <>
-          <p className="filename">Editing: {source.name}</p>
+          <div className="editing-bar">
+            <button type="button" className="back-button" onClick={clearSource}>
+              ← Choose another video
+            </button>
+            <p className="filename">Editing: {source.name}</p>
+          </div>
           <VideoEditor
             source={source}
             duration={duration}

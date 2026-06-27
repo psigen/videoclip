@@ -24,6 +24,7 @@ export function VideoEditor({
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [current, setCurrent] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [loopSel, setLoopSel] = useState(true);
   // Local text buffers so users can type a partial timecode without it being clobbered.
   const [startText, setStartText] = useState(formatTime(start));
@@ -31,6 +32,11 @@ export function VideoEditor({
 
   useEffect(() => setStartText(formatTime(start)), [start]);
   useEffect(() => setEndText(formatTime(end)), [end]);
+
+  // React doesn't reliably reflect the `muted` attribute to the DOM property, so set it directly.
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = true;
+  }, [source]);
 
   function seek(t: number) {
     const v = videoRef.current;
@@ -45,13 +51,23 @@ export function VideoEditor({
     void v.play();
   }
 
+  function togglePlay() {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) playSelection();
+    else v.pause();
+  }
+
   return (
     <section className="card editor">
       <video
         ref={videoRef}
         src={source.url}
         controls
+        muted
         onLoadedMetadata={(e) => onDuration(e.currentTarget.duration || 0)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
         onTimeUpdate={(e) => {
           const t = e.currentTarget.currentTime;
           setCurrent(t);
@@ -72,7 +88,9 @@ export function VideoEditor({
       />
 
       <div className="controls">
-        <button onClick={playSelection}>▶ Play selection</button>
+        <button className="play-toggle" onClick={togglePlay}>
+          {playing ? '⏸ Pause' : '▶ Play selection'}
+        </button>
         <label className="checkbox">
           <input type="checkbox" checked={loopSel} onChange={(e) => setLoopSel(e.target.checked)} />
           Loop
