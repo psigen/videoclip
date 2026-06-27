@@ -1,4 +1,4 @@
-import { hasPicker } from './config';
+import { hasDriveOAuth } from './config';
 
 export function Privacy() {
   return (
@@ -12,8 +12,8 @@ export function Privacy() {
         <h2>No uploads, ever</h2>
         <p>
           VideoClip is a <strong>static web app with no backend of its own</strong>. When you open a
-          video — whether by dragging in a local file, pasting a Google Drive link, or using the
-          Browse button — the file is loaded directly into your browser's memory. All trimming and
+          video — whether by dragging in a local file or pasting a Google Drive / direct video link
+          — the file is loaded directly into your browser's memory. All trimming and
           encoding to GIF or MP4 happens locally using <em>ffmpeg.wasm</em> (FFmpeg compiled to
           WebAssembly) running inside this browser tab. The resulting file is created on your device
           and offered to you as a download. At no point is your video, or the clip you create, sent
@@ -27,12 +27,12 @@ export function Privacy() {
             files are served from wherever the app is hosted (e.g. GitHub Pages).
           </li>
           <li>
-            <strong>Google Drive (only if you use it)</strong> — if you paste a Drive link or use
-            Browse, your browser talks <em>directly to Google's APIs</em> to download the file you
-            chose. This traffic goes between you and Google; it does not pass through any server
-            belonging to this app. {hasPicker
-              ? 'Authorization uses Google Identity Services; the access token is held only in memory for the current session and is requested with read-only Drive scope.'
-              : 'Drive Browse is currently disabled because no Google client id is configured.'}
+            <strong>Loading from a link (only if you use it)</strong> — if you paste a Google Drive
+            link or a direct video URL, your browser fetches it <em>directly</em> from Google (or
+            the URL's host) to download the file. This traffic goes between you and that host; it
+            does not pass through any server belonging to this app. {hasDriveOAuth
+              ? 'Opening a private Drive file uses Google Identity Services; the access token is held only in memory for the current session and is requested with read-only Drive scope.'
+              : 'Opening private Drive files is currently disabled because no Google client id is configured.'}
           </li>
         </ul>
 
