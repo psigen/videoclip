@@ -63,6 +63,8 @@ export function App() {
       <footer>
         <a href="#/privacy">Privacy</a>
         <span aria-hidden>·</span>
+        <a href="#/terms">Terms</a>
+        <span aria-hidden>·</span>
         <span>100% client-side · nothing is uploaded</span>
       </footer>
     </div>
