@@ -22,7 +22,7 @@ There is no test suite, linter, or formatter configured. `npm run build` (which 
 
 These are deliberate decisions enforced across multiple files. Do not "fix" them without understanding why.
 
-- **Single-thread ffmpeg core only.** The multi-thread core was intentionally dropped because it requires cross-origin isolation (COOP/COEP), which (a) GitHub Pages cannot send and (b) breaks the Google Picker's cross-origin scripts. Consequences threaded through the code:
+- **Single-thread ffmpeg core only.** The multi-thread core was intentionally dropped because it requires cross-origin isolation (COOP/COEP), which GitHub Pages cannot send. Consequences threaded through the code:
   - [vite.config.ts](vite.config.ts) sends **no** COOP/COEP headers and excludes `@ffmpeg/*` from dep pre-bundling.
   - [scripts/copy-ffmpeg.mjs](scripts/copy-ffmpeg.mjs) copies only the ST core, and only the **ESM** dist build (`dist/esm`) — the UMD build has no `default` export and fails to import in the module worker.
   - Never reintroduce `@ffmpeg/core-mt`, `SharedArrayBuffer`, or isolation headers.
@@ -42,7 +42,7 @@ These are deliberate decisions enforced across multiple files. Do not "fix" them
 - [src/hooks/useFfmpeg.ts](src/hooks/useFfmpeg.ts) — React surface: `busy`/`progress`/`status`/`error`, `run()`, and `preload()` (warms the ~30MB core in the background once a source loads). The singleton lives in the lib, so the hook is stateless w.r.t. the core.
 - [src/lib/ffmpeg.ts](src/lib/ffmpeg.ts) — pure logic, no React. Maintains the lazy `FFmpeg` singleton and `exportClip()`. GIF = two-pass `palettegen`/`paletteuse` with lanczos (`-loop 0` to loop forever); MP4 = `libx264 -crf` + `yuv420p` + `+faststart`. Note `ffmpeg.exec()` resolves with an exit code rather than throwing — `runExec` checks it and surfaces captured log lines; the virtual FS is cleaned in a `finally`.
 
-**Google Drive ([src/lib/drive.ts](src/lib/drive.ts), [src/config.ts](src/config.ts)):** entirely optional and credential-gated. Two paths — public link + API key (`files.get?alt=media&key=`) and Browse via OAuth token + Picker (read-only scope). Credentials come from build-time Vite env vars `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_API_KEY` (see `.env.example`); `hasPicker` (client id present) gates whether the Browse button renders. The app must remain fully functional (local files / drag-drop) with neither var set.
+**Link loading ([src/lib/drive.ts](src/lib/drive.ts), [src/config.ts](src/config.ts)):** the paste box accepts Drive links and plain `http(s)` video URLs. A pasted link is classified at paste time (debounced, in `SourceDialog`) via `probeDriveAccess` (a key-only metadata probe: 200 = public, 403/404 = private), so the click handler can branch synchronously — important because the private path's OAuth sign-in popup must fire under fresh user activation. Three download paths: public Drive (`files.get?alt=media&key=`), private Drive (OAuth token + `Bearer`, read-only scope), and direct URL (`fetchDirectUrl`, subject to the host's CORS). Drive credentials come from build-time Vite env vars `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_API_KEY` (see `.env.example`); `hasDriveOAuth` (client id present) gates whether private Drive links can be opened. Direct URLs need no credentials. The app must remain fully functional (local files / drag-drop / direct URLs) with neither var set.
 
 ## Deploy
 

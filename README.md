@@ -7,7 +7,7 @@ all processing happens in your browser via [ffmpeg.wasm](https://ffmpegwasm.netl
 
 - 🎞️ Preview + dual-handle in/out selection with loop preview
 - 🪄 High-quality GIF (two-pass palette, looping) or H.264 MP4 export
-- 📁 Sources: drag/drop local file, paste a Drive link, or Browse Google Drive (optional)
+- 📁 Sources: drag/drop local file, or paste a Google Drive link (public or private) or direct video URL
 - 🔒 No backend, no uploads, no analytics — see the in-app **Privacy** page
 - 🚀 One-click deploy to GitHub Pages
 
@@ -43,33 +43,32 @@ npm run preview
 | Video processing | `@ffmpeg/ffmpeg` (FFmpeg → WebAssembly) runs in the browser tab |
 | GIF quality | Two-pass `palettegen` / `paletteuse` with lanczos scaling; `-loop 0` to loop forever |
 | MP4 | `libx264 -crf` re-encode, `yuv420p`, `+faststart` for instant web playback |
-| Drive (link) | Browser fetches `files.get?alt=media` directly from Google |
-| Drive (Browse) | Google Identity Services token + Google Picker, read-only scope |
+| Public link | Browser fetches `files.get?alt=media&key=` (Drive) or the URL directly |
+| Private Drive link | Google Identity Services token + `files.get?alt=media` with `Bearer`, read-only scope |
 
 ### Encoder core
 
 The app uses the **single-thread** ffmpeg core. It needs no `SharedArrayBuffer` /
 cross-origin isolation, so it runs anywhere — including **GitHub Pages**, which can't
-send `COOP`/`COEP` headers — and never interferes with the Google Picker (cross-origin
-isolation would block Google's Picker scripts). Short clips encode in a few seconds.
+send `COOP`/`COEP` headers. Short clips encode in a few seconds.
 
 > The multi-thread core was intentionally dropped: it requires cross-origin isolation
-> (which breaks the Picker) and loaded unreliably across browser/worker environments.
+> (which GitHub Pages can't provide) and loaded unreliably across browser/worker environments.
 
 ## Google Drive setup (optional)
 
 Local files and drag/drop need no setup. To enable Drive, create credentials in the
 [Google Cloud Console](https://console.cloud.google.com/):
 
-1. **Create a project**, then enable the **Google Picker API** and **Google Drive API**
-   (APIs & Services → Library).
+1. **Create a project**, then enable the **Google Drive API** (APIs & Services → Library).
 2. **API key** (APIs & Services → Credentials → Create credentials → API key).
-   Restrict it to the Picker + Drive APIs. → `VITE_GOOGLE_API_KEY`
+   Restrict it to the Drive API. → `VITE_GOOGLE_API_KEY` (lets pasted links fetch public files).
 3. **OAuth client id** (Credentials → Create credentials → OAuth client ID → *Web
-   application*). Under **Authorized JavaScript origins** add every origin you'll serve
-   from, e.g. `http://localhost:5173` and `https://<your-username>.github.io`.
-   → `VITE_GOOGLE_CLIENT_ID`
-4. Configure the **OAuth consent screen** (External is fine; add yourself as a test user).
+   application*) — only needed to open **private** Drive files. Under **Authorized JavaScript
+   origins** add every origin you'll serve from, e.g. `http://localhost:5173` and
+   `https://<your-username>.github.io`. → `VITE_GOOGLE_CLIENT_ID`
+4. If you added a client id, configure the **OAuth consent screen** (External is fine; add
+   yourself as a test user).
 
 Copy `.env.example` to `.env` and fill in what you have:
 
@@ -86,12 +85,15 @@ Behavior based on what you provide:
 
 | Configured | Result |
 | --- | --- |
-| Neither | Local files only; paste box shown but public-link fetches usually blocked by CORS |
-| API key only | Paste box can fetch **publicly shared** Drive files; no Browse button |
-| Client id (+ key) | **Browse** button appears; OAuth Picker can open any file you can access |
+| Neither | Local files + direct video URLs; **publicly shared** Drive links usually blocked by CORS |
+| API key only | Paste box also fetches **publicly shared** Drive files |
+| Client id (+ key) | Paste box also opens **private** Drive files you can access (sign in once) |
 
-The **Browse button only appears when a client id is set.** The paste-link box is always
-present.
+The paste-link box is always present and accepts a **direct video URL** (any `http(s)` link the
+host serves with CORS enabled) as well as Google Drive links — no Google credentials needed for
+direct URLs. When a client id is configured, a pasted Drive link is checked the moment you paste
+it: public files load straight away, while a **private** file flips the button to “🔒 Sign in &
+load,” so one click signs you in (once per session) and downloads it.
 
 ## Deploy to GitHub Pages
 
@@ -125,15 +127,15 @@ A `.nojekyll` file is included so the `ffmpeg/` assets are served intact.
 - ffmpeg.wasm holds the source + output in memory (~2–4 GB ceiling). Very large/long or
   high-resolution sources may fail — use a lower FPS/width, a shorter range, or pre-trim a
   local copy. The UI warns when a GIF clip gets long.
-- Pasted Drive links only work for files shared **“Anyone with the link”** and need an API
-  key; private files require **Browse**. Drag/drop always works.
+- Pasted **public** Drive links need an API key; **private** Drive links need an OAuth client id
+  (you sign in once). Direct video URLs need the host to allow CORS. Drag/drop always works.
 
 ## Project layout
 
 ```
 src/
   lib/ffmpeg.ts      # single-thread core loading + GIF/MP4 export commands
-  lib/drive.ts       # Drive link parsing, API-key fetch, OAuth + Picker
+  lib/drive.ts       # Drive/URL link parsing, public (API-key) + private (OAuth) downloads
   lib/time.ts        # timecode parsing/formatting
   hooks/useFfmpeg.ts # lazy load, progress, export wrapper
   components/        # SourceDialog, VideoEditor, Timeline, ExportPanel

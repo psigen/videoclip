@@ -26,9 +26,8 @@ export type LogHandler = (message: string) => void;
  *
  * We use the single-thread core. It needs no SharedArrayBuffer / cross-origin
  * isolation, so it runs anywhere — including GitHub Pages, which can't send the
- * COOP/COEP headers — and never interferes with the Google Picker. (The
- * multi-thread core was intentionally dropped: it requires that isolation and
- * loaded unreliably across browser/worker environments.)
+ * COOP/COEP headers. (The multi-thread core was intentionally dropped: it
+ * requires that isolation and loaded unreliably across browser/worker environments.)
  */
 export function loadFfmpeg(onLog?: LogHandler): Promise<FFmpeg> {
   if (ffmpegSingleton) return Promise.resolve(ffmpegSingleton);
