@@ -18,7 +18,11 @@ export function Terms() {
 
         <h2>The app is provided &ldquo;as is&rdquo;</h2>
         <p>
-          VideoClip is a free, open-source, client-side tool offered without warranty of any kind,
+          VideoClip is a free,{' '}
+          <a href="https://github.com/psigen/videoclip" target="_blank" rel="noopener noreferrer">
+            open-source
+          </a>
+          , client-side tool offered without warranty of any kind,
           express or implied, including but not limited to warranties of merchantability, fitness for
           a particular purpose, and non-infringement. The app makes no guarantee that it will be
           available, error-free, or that any clip it produces will meet your needs or preserve the

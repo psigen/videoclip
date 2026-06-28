@@ -47,7 +47,11 @@ export function Privacy() {
         <p>
           Open your browser's developer tools, go to the Network tab, and watch while you load a
           local file and export a clip: you will see no upload of your media. The source code is
-          available for inspection in the project repository.
+          available for inspection in the{' '}
+          <a href="https://github.com/psigen/videoclip" target="_blank" rel="noopener noreferrer">
+            project repository
+          </a>
+          .
         </p>
       </section>
 
