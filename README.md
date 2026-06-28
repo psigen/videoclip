@@ -11,6 +11,10 @@ all processing happens in your browser via [ffmpeg.wasm](https://ffmpegwasm.netl
 - 🔒 No backend, no uploads, no analytics — see the in-app **Privacy** page
 - 🚀 One-click deploy to GitHub Pages
 
+<p align="center">
+   <img width="600" alt="image" src="https://github.com/user-attachments/assets/ed56d00d-17e0-49c5-a619-03befd5ee042" />
+</p>
+
 ## Quick start
 
 ```bash
