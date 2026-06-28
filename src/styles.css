@@ -400,10 +400,24 @@ footer a {
   color: var(--accent);
 }
 
+footer a.github-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+}
+
+footer a.github-link:hover {
+  color: var(--accent);
+}
+
 /* --- Privacy page --- */
 .prose p,
 .prose li {
   color: var(--text);
+}
+
+.prose a {
+  color: var(--accent);
 }
 
 .prose h2 {
