@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { UseFfmpeg } from '../hooks/useFfmpeg';
-import type { ExportOptions, GifOptions, Mp4Options } from '../lib/ffmpeg';
+import type { ExportOptions, GifOptions, Mp4Options, WebmOptions } from '../lib/ffmpeg';
 import { formatTime } from '../lib/time';
 import type { VideoSource } from '../types';
 
@@ -13,11 +13,13 @@ interface Props {
 
 const defaultGif: GifOptions = { format: 'gif', fps: 15, width: 480, dither: true, loop: true };
 const defaultMp4: Mp4Options = { format: 'mp4', crf: 20, maxWidth: null, includeAudio: true };
+const defaultWebm: WebmOptions = { format: 'webm', crf: 10, maxWidth: null, includeAudio: true };
 
 export function ExportPanel({ source, start, end, ffmpeg }: Props) {
-  const [format, setFormat] = useState<'gif' | 'mp4'>('gif');
+  const [format, setFormat] = useState<'gif' | 'mp4' | 'webm'>('gif');
   const [gif, setGif] = useState<GifOptions>(defaultGif);
   const [mp4, setMp4] = useState<Mp4Options>(defaultMp4);
+  const [webm, setWebm] = useState<WebmOptions>(defaultWebm);
   const [result, setResult] = useState<{ url: string; name: string; size: number } | null>(null);
 
   const clipDuration = Math.max(0, end - start);
@@ -32,7 +34,7 @@ export function ExportPanel({ source, start, end, ffmpeg }: Props) {
   const longGif = format === 'gif' && clipDuration > 15;
 
   async function onExport() {
-    const options: ExportOptions = format === 'gif' ? gif : mp4;
+    const options: ExportOptions = format === 'gif' ? gif : format === 'mp4' ? mp4 : webm;
     const out = await ffmpeg.run({ file: source.file, fileName: source.name, start, end, options });
     if (out) {
       setResult((prev) => {
@@ -52,6 +54,9 @@ export function ExportPanel({ source, start, end, ffmpeg }: Props) {
         </button>
         <button className={format === 'mp4' ? 'active' : ''} onClick={() => setFormat('mp4')}>
           MP4
+        </button>
+        <button className={format === 'webm' ? 'active' : ''} onClick={() => setFormat('webm')}>
+          WebM
         </button>
       </div>
 
@@ -100,7 +105,7 @@ export function ExportPanel({ source, start, end, ffmpeg }: Props) {
             Loop forever
           </label>
         </div>
-      ) : (
+      ) : format === 'mp4' ? (
         <div className="options">
           <label>
             Quality (CRF: lower = better)
@@ -130,6 +135,40 @@ export function ExportPanel({ source, start, end, ffmpeg }: Props) {
               type="checkbox"
               checked={mp4.includeAudio}
               onChange={(e) => setMp4({ ...mp4, includeAudio: e.target.checked })}
+            />
+            Include audio
+          </label>
+        </div>
+      ) : (
+        <div className="options">
+          <label>
+            Quality (CRF: lower = better)
+            <input
+              type="number"
+              min={4}
+              max={63}
+              value={webm.crf}
+              onChange={(e) => setWebm({ ...webm, crf: Number(e.target.value) })}
+            />
+          </label>
+          <label>
+            Max width (px, blank = original)
+            <input
+              type="number"
+              min={120}
+              max={3840}
+              step={10}
+              value={webm.maxWidth ?? ''}
+              onChange={(e) =>
+                setWebm({ ...webm, maxWidth: e.target.value === '' ? null : Number(e.target.value) })
+              }
+            />
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={webm.includeAudio}
+              onChange={(e) => setWebm({ ...webm, includeAudio: e.target.checked })}
             />
             Include audio
           </label>

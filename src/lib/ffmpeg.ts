@@ -68,7 +68,14 @@ export interface Mp4Options {
   includeAudio: boolean;
 }
 
-export type ExportOptions = GifOptions | Mp4Options;
+export interface WebmOptions {
+  format: 'webm';
+  crf: number; // VP8 CRF 4 (best) .. 63 (worst); ~10 is high quality
+  maxWidth: number | null; // cap width (keeps aspect, never upscales) or null = original
+  includeAudio: boolean;
+}
+
+export type ExportOptions = GifOptions | Mp4Options | WebmOptions;
 
 export interface ExportRequest {
   file: File | Blob;
@@ -93,6 +100,16 @@ function extensionFor(fileName: string): string {
 
 function baseName(fileName: string): string {
   return fileName.replace(/\.[^.]+$/, '') || 'clip';
+}
+
+// libx264/yuv420p require even width AND height; VP9 is happier with them too.
+// Cap to maxWidth when set (never upscale via min()), else keep original size;
+// 2*trunc(.../2) forces the width even, -2 forces the height even. This is what
+// keeps odd-sized sources (common with webm / phone captures, e.g. 978x1175)
+// from failing to encode.
+function evenScaleFilter(maxWidth: number | null): string {
+  const widthCap = maxWidth ? `min(${maxWidth}\\,iw)` : 'iw';
+  return `scale='2*trunc(${widthCap}/2)':-2:flags=lanczos`;
 }
 
 /** Trim + encode the selected range, returning a downloadable blob. */
@@ -161,13 +178,40 @@ export async function exportClip(req: ExportRequest): Promise<ExportResult> {
       return { blob, fileName: outName, url: URL.createObjectURL(blob) };
     }
 
+    if (options.format === 'webm') {
+      // WebM (VP8 + Opus). VP8 — not VP9 — because libvpx-vp9 traps ("memory
+      // access out of bounds") in the single-thread wasm core; VP8 encodes
+      // reliably. CRF mode: -b:v 0 makes -crf the sole quality target.
+      const outName = `${baseName(fileName)}-clip.webm`;
+      const args = [
+        '-ss', ss, '-to', to, '-i', inputName,
+        '-vf', evenScaleFilter(options.maxWidth),
+        '-c:v', 'libvpx',
+        '-crf', String(options.crf),
+        '-b:v', '0',
+        '-deadline', 'good',
+        '-cpu-used', '4', // quality/speed balance for the single-thread wasm core
+        '-pix_fmt', 'yuv420p',
+      ];
+      if (options.includeAudio) {
+        args.push('-c:a', 'libopus', '-b:a', '128k');
+      } else {
+        args.push('-an');
+      }
+      args.push('-y', outName);
+
+      await runExec(args, 'webm');
+      written.push(outName);
+
+      const data = await ffmpeg.readFile(outName);
+      const blob = new Blob([new Uint8Array(data as Uint8Array)], { type: 'video/webm' });
+      return { blob, fileName: outName, url: URL.createObjectURL(blob) };
+    }
+
     // MP4 (H.264). Re-encode for a frame-accurate cut and broad compatibility.
     const outName = `${baseName(fileName)}-clip.mp4`;
-    const args = ['-ss', ss, '-to', to, '-i', inputName];
-    if (options.maxWidth) {
-      // Cap width, keep aspect, force even dims (yuv420p), never upscale.
-      args.push('-vf', `scale='min(${options.maxWidth}\\,iw)':-2:flags=lanczos`);
-    }
+    // Cap width, keep aspect, force even dims (yuv420p requires them), never upscale.
+    const args = ['-ss', ss, '-to', to, '-i', inputName, '-vf', evenScaleFilter(options.maxWidth)];
     args.push(
       '-c:v', 'libx264',
       '-crf', String(options.crf),
