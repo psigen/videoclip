@@ -1,6 +1,7 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { toFfmpegTime } from './time';
+import { clamp, toFfmpegTime } from './time';
+import type { CropRegion } from '../types';
 
 // ---------------------------------------------------------------------------
 // Core loading
@@ -56,7 +57,7 @@ export function loadFfmpeg(onLog?: LogHandler): Promise<FFmpeg> {
 export interface GifOptions {
   format: 'gif';
   fps: number; // frames per second
-  width: number; // output width in px; height auto (keeps aspect)
+  width: number | null; // output width in px (height auto, keeps aspect); null = native resolution
   dither: boolean; // smoother gradients vs smaller file
   loop: boolean; // loop forever (true) vs play once (false)
 }
@@ -83,6 +84,7 @@ export interface ExportRequest {
   start: number; // seconds
   end: number; // seconds
   options: ExportOptions;
+  crop?: CropRegion | null; // spatial crop (fractions of source); null/undefined = full frame
   onProgress?: (ratio: number) => void;
   onLog?: LogHandler;
 }
@@ -112,10 +114,34 @@ function evenScaleFilter(maxWidth: number | null): string {
   return `scale='2*trunc(${widthCap}/2)':-2:flags=lanczos`;
 }
 
+// A `crop` filter placed BEFORE `scale`, expressed as fractions of the source
+// via iw/ih so no source dimensions are needed in JS. Returns null for no crop
+// or a full-frame crop (nothing to do). The expression contains only iw/ih/*/:
+// and digits — no comma — so it needs no escaping and is a single filter.
+// Any odd dims it produces are normalized to even by the trailing scale (MP4/WebM);
+// GIF is palette-based so odd dims are fine there.
+function cropFilter(crop: CropRegion | null | undefined): string | null {
+  if (!crop) return null;
+  const w = clamp(crop.width, 0, 1);
+  const h = clamp(crop.height, 0, 1);
+  const x = clamp(crop.x, 0, 1 - w);
+  const y = clamp(crop.y, 0, 1 - h);
+  if (w <= 0 || h <= 0) return null;
+  if (w >= 0.999 && h >= 0.999 && x <= 0.001 && y <= 0.001) return null; // full frame = no-op
+  const f = (n: number) => n.toFixed(6);
+  return `crop=iw*${f(w)}:ih*${f(h)}:iw*${f(x)}:ih*${f(y)}`;
+}
+
+/** Join filter fragments into an ffmpeg filterchain, dropping the null/empty ones. */
+function chainFilters(...parts: Array<string | null>): string {
+  return parts.filter((s): s is string => Boolean(s)).join(',');
+}
+
 /** Trim + encode the selected range, returning a downloadable blob. */
 export async function exportClip(req: ExportRequest): Promise<ExportResult> {
-  const { file, fileName, start, end, options, onProgress, onLog } = req;
+  const { file, fileName, start, end, options, crop, onProgress, onLog } = req;
   const ffmpeg = await loadFfmpeg(onLog);
+  const cf = cropFilter(crop);
 
   const ext = extensionFor(fileName);
   const inputName = `input.${ext}`;
@@ -152,14 +178,19 @@ export async function exportClip(req: ExportRequest): Promise<ExportResult> {
 
     if (options.format === 'gif') {
       const outName = `${baseName(fileName)}.gif`;
-      const scale = `scale=${options.width}:-1:flags=lanczos`;
+      // Blank width = native resolution: omit the scale filter entirely.
+      const scale = options.width != null ? `scale=${options.width}:-1:flags=lanczos` : null;
+      const fps = `fps=${options.fps}`;
       const dither = options.dither ? 'dither=bayer:bayer_scale=5:diff_mode=rectangle' : 'dither=none';
       const palette = 'palette.png';
+      // Crop before scale so a set width applies to the cropped frame; crop must
+      // appear in BOTH passes so the palette matches the rendered geometry.
+      const geom = chainFilters(fps, cf, scale);
 
       // Pass 1: build an optimal palette for the selected range.
       await runExec([
         '-ss', ss, '-to', to, '-i', inputName,
-        '-vf', `fps=${options.fps},${scale},palettegen=stats_mode=diff`,
+        '-vf', chainFilters(geom, 'palettegen=stats_mode=diff'),
         '-y', palette,
       ], 'palette');
       written.push(palette);
@@ -167,7 +198,7 @@ export async function exportClip(req: ExportRequest): Promise<ExportResult> {
       // Pass 2: render the GIF using that palette; -loop 0 = loop forever.
       await runExec([
         '-ss', ss, '-to', to, '-i', inputName, '-i', palette,
-        '-lavfi', `fps=${options.fps},${scale} [x]; [x][1:v] paletteuse=${dither}`,
+        '-lavfi', `${geom} [x]; [x][1:v] paletteuse=${dither}`,
         '-loop', options.loop ? '0' : '-1',
         '-y', outName,
       ], 'gif');
@@ -185,7 +216,7 @@ export async function exportClip(req: ExportRequest): Promise<ExportResult> {
       const outName = `${baseName(fileName)}-clip.webm`;
       const args = [
         '-ss', ss, '-to', to, '-i', inputName,
-        '-vf', evenScaleFilter(options.maxWidth),
+        '-vf', chainFilters(cf, evenScaleFilter(options.maxWidth)),
         '-c:v', 'libvpx',
         '-crf', String(options.crf),
         '-b:v', '0',
@@ -211,7 +242,10 @@ export async function exportClip(req: ExportRequest): Promise<ExportResult> {
     // MP4 (H.264). Re-encode for a frame-accurate cut and broad compatibility.
     const outName = `${baseName(fileName)}-clip.mp4`;
     // Cap width, keep aspect, force even dims (yuv420p requires them), never upscale.
-    const args = ['-ss', ss, '-to', to, '-i', inputName, '-vf', evenScaleFilter(options.maxWidth)];
+    const args = [
+      '-ss', ss, '-to', to, '-i', inputName,
+      '-vf', chainFilters(cf, evenScaleFilter(options.maxWidth)),
+    ];
     args.push(
       '-c:v', 'libx264',
       '-crf', String(options.crf),

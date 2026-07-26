@@ -3,13 +3,15 @@ import { SourceDialog } from './components/SourceDialog';
 import { VideoEditor } from './components/VideoEditor';
 import { ExportPanel } from './components/ExportPanel';
 import { useFfmpeg } from './hooks/useFfmpeg';
-import type { VideoSource } from './types';
+import type { CropRegion, VideoSource } from './types';
 
 export function App() {
   const [source, setSource] = useState<VideoSource | null>(null);
   const [duration, setDuration] = useState(0);
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
+  // Spatial crop (fractions of the source frame), independent of the time trim.
+  const [crop, setCrop] = useState<CropRegion | null>(null);
   const ffmpeg = useFfmpeg();
 
   // Warm the encoder in the background once a video is loaded.
@@ -25,6 +27,7 @@ export function App() {
     setDuration(0);
     setStart(0);
     setEnd(0);
+    setCrop(null);
   }
 
   function clearSource() {
@@ -35,12 +38,14 @@ export function App() {
     setDuration(0);
     setStart(0);
     setEnd(0);
+    setCrop(null);
   }
 
   function onDuration(d: number) {
     setDuration(d);
     setStart(0);
     setEnd(d);
+    setCrop(null);
   }
 
   return (
@@ -67,11 +72,13 @@ export function App() {
             duration={duration}
             start={start}
             end={end}
+            crop={crop}
             onDuration={onDuration}
             onChangeStart={setStart}
             onChangeEnd={setEnd}
+            onChangeCrop={setCrop}
           />
-          <ExportPanel source={source} start={start} end={end} ffmpeg={ffmpeg} />
+          <ExportPanel source={source} start={start} end={end} crop={crop} ffmpeg={ffmpeg} />
         </>
       )}
 

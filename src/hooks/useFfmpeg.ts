@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { exportClip, loadFfmpeg, type ExportOptions, type ExportResult } from '../lib/ffmpeg';
+import type { CropRegion } from '../types';
 
 interface ExportArgs {
   file: File | Blob;
@@ -7,6 +8,7 @@ interface ExportArgs {
   start: number;
   end: number;
   options: ExportOptions;
+  crop?: CropRegion | null;
 }
 
 export interface UseFfmpeg {
