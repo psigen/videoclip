@@ -184,6 +184,12 @@ a.primary {
   display: inline-block;
 }
 
+/* Keep the export button one stable width so it doesn't resize between the
+   GIF / MP4 / WebM labels (or "Working…"). 140px clears the widest label. */
+.export button.primary {
+  min-width: 140px;
+}
+
 button.primary:hover:not(:disabled),
 a.primary:hover {
   background: var(--accent-2);
