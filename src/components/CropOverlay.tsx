@@ -16,17 +16,17 @@ interface DragState {
   downClientX: number; // pointerdown pixels (click-vs-drag threshold)
   downClientY: number;
   moved: boolean; // crossed the drag threshold — mutated in place
+  hadCrop: boolean; // whether a crop existed at pointerdown (for click-outside-to-clear)
 }
 
 interface Props {
   crop: CropRegion | null;
-  onChange: (c: CropRegion) => void;
+  /** Report a new/updated crop, or null to clear it. */
+  onChange: (c: CropRegion | null) => void;
   /** Locked aspect ratio in FRACTION space (width/height), or null for freeform. */
   ratioFrac: number | null;
   minW: number; // minimum box width/height as source fractions
   minH: number;
-  /** A click on the video that never became a drag → toggle play (native controls are gone). */
-  onClickIdle: () => void;
 }
 
 const CORNERS = ['nw', 'ne', 'sw', 'se'] as const;
@@ -103,15 +103,15 @@ function computeBox(
   return { x: b.x, y: T, width: b.width, height: B - T };
 }
 
-export function CropOverlay({ crop, onChange, ratioFrac, minW, minH, onClickIdle }: Props) {
+export function CropOverlay({ crop, onChange, ratioFrac, minW, minH }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [active, setActive] = useState<DragMode | null>(null);
 
   // Latest params, read by the window handlers so they never need to re-bind
   // mid-drag (the listeners are attached once per gesture, keyed on `active`).
-  const params = useRef({ onChange, onClickIdle, ratioFrac, minW, minH });
-  params.current = { onChange, onClickIdle, ratioFrac, minW, minH };
+  const params = useRef({ onChange, ratioFrac, minW, minH });
+  params.current = { onChange, ratioFrac, minW, minH };
 
   function fracAt(clientX: number, clientY: number) {
     const r = ref.current!.getBoundingClientRect();
@@ -147,6 +147,7 @@ export function CropOverlay({ crop, onChange, ratioFrac, minW, minH, onClickIdle
       downClientX: e.clientX,
       downClientY: e.clientY,
       moved: false,
+      hadCrop: crop != null,
     };
     setActive(mode);
   }
@@ -171,7 +172,10 @@ export function CropOverlay({ crop, onChange, ratioFrac, minW, minH, onClickIdle
     };
     const up = () => {
       const d = dragRef.current;
-      if (d && !d.moved && (d.mode === 'new' || d.mode === 'move')) params.current.onClickIdle();
+      // A click (no drag) started on the empty area is outside the box: clear the
+      // crop if one exists. Clicks inside the box (mode 'move') or with no crop do
+      // nothing. Handles never reach here as 'new'/'move'.
+      if (d && !d.moved && d.mode === 'new' && d.hadCrop) params.current.onChange(null);
       dragRef.current = null;
       setActive(null);
     };

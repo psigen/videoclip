@@ -180,7 +180,6 @@ export function VideoEditor({
           ratioFrac={ratioFrac}
           minW={minW}
           minH={minH}
-          onClickIdle={togglePlay}
         />
       </div>
 
