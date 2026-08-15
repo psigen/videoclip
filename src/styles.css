@@ -229,9 +229,18 @@ button.link {
   position: absolute;
   inset: 0;
   touch-action: none;
+  /* Block text selection so a drag can't get hijacked mid-gesture. */
+  user-select: none;
+  -webkit-user-select: none;
   cursor: crosshair;
   overflow: hidden;
   border-radius: 8px;
+}
+
+/* With a crop set, the area OUTSIDE the box is a click-to-clear target, so show a
+   cancellation cursor there. The box (move) and handles (resize) override it. */
+.crop-overlay.has-crop {
+  cursor: not-allowed;
 }
 
 /* The huge spread box-shadow dims everything OUTSIDE the box; overflow:hidden on

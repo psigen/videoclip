@@ -122,6 +122,18 @@ export function CropOverlay({ crop, onChange, ratioFrac, minW, minH }: Props) {
   }
 
   function beginDrag(mode: DragMode, e: React.PointerEvent) {
+    // Capture the pointer to this element so we are GUARANTEED the terminal
+    // pointerup/pointercancel (even if the pointer leaves the window or a native
+    // gesture would otherwise steal it) — that missing terminal event is what left
+    // the box "stuck" to the cursor. preventDefault stops text-selection from
+    // hijacking the drag. Capturing on the gesture's own element also keeps the
+    // cursor correct (move/resize/crosshair) for the duration of the drag.
+    e.preventDefault();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* setPointerCapture can throw if the pointer is already gone; non-fatal */
+    }
     const box = crop ?? { x: 0, y: 0, width: 0, height: 0 };
     const { fx, fy } = fracAt(e.clientX, e.clientY);
     let fixedX = fx;
@@ -170,20 +182,28 @@ export function CropOverlay({ crop, onChange, ratioFrac, minW, minH }: Props) {
       const p = params.current;
       p.onChange(computeBox(d, fx, fy, p.ratioFrac, p.minW, p.minH));
     };
-    const up = () => {
+    // End the gesture. `cancelled` (from pointercancel) skips the click action so
+    // an interrupted gesture never clears the crop; both paths reset drag state.
+    const end = (cancelled: boolean) => {
       const d = dragRef.current;
       // A click (no drag) started on the empty area is outside the box: clear the
       // crop if one exists. Clicks inside the box (mode 'move') or with no crop do
       // nothing. Handles never reach here as 'new'/'move'.
-      if (d && !d.moved && d.mode === 'new' && d.hadCrop) params.current.onChange(null);
+      if (!cancelled && d && !d.moved && d.mode === 'new' && d.hadCrop) {
+        params.current.onChange(null);
+      }
       dragRef.current = null;
       setActive(null);
     };
+    const up = () => end(false);
+    const cancel = () => end(true);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
@@ -192,7 +212,11 @@ export function CropOverlay({ crop, onChange, ratioFrac, minW, minH }: Props) {
   const handles = ratioFrac == null ? [...CORNERS, ...EDGES] : [...CORNERS];
 
   return (
-    <div className="crop-overlay" ref={ref} onPointerDown={onOverlayDown}>
+    <div
+      className={crop ? 'crop-overlay has-crop' : 'crop-overlay'}
+      ref={ref}
+      onPointerDown={onOverlayDown}
+    >
       {crop && (
         <div
           className="crop-selection"
