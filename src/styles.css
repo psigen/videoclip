@@ -237,12 +237,6 @@ button.link {
   border-radius: 8px;
 }
 
-/* With a crop set, the area OUTSIDE the box is a click-to-clear target, so show a
-   cancellation cursor there. The box (move) and handles (resize) override it. */
-.crop-overlay.has-crop {
-  cursor: not-allowed;
-}
-
 /* The huge spread box-shadow dims everything OUTSIDE the box; overflow:hidden on
    the overlay clips it to the video. Interior stays clear for a bright preview. */
 .crop-selection {

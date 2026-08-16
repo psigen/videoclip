@@ -212,11 +212,7 @@ export function CropOverlay({ crop, onChange, ratioFrac, minW, minH }: Props) {
   const handles = ratioFrac == null ? [...CORNERS, ...EDGES] : [...CORNERS];
 
   return (
-    <div
-      className={crop ? 'crop-overlay has-crop' : 'crop-overlay'}
-      ref={ref}
-      onPointerDown={onOverlayDown}
-    >
+    <div className="crop-overlay" ref={ref} onPointerDown={onOverlayDown}>
       {crop && (
         <div
           className="crop-selection"
