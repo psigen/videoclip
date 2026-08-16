@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import type { UseFfmpeg } from '../hooks/useFfmpeg';
 import type { ExportOptions, GifOptions, Mp4Options, WebmOptions } from '../lib/ffmpeg';
 import { formatTime } from '../lib/time';
-import type { VideoSource } from '../types';
+import type { CropRegion, VideoSource } from '../types';
 
 interface Props {
   source: VideoSource;
   start: number;
   end: number;
+  crop: CropRegion | null;
   ffmpeg: UseFfmpeg;
 }
 
@@ -15,7 +16,7 @@ const defaultGif: GifOptions = { format: 'gif', fps: 15, width: 480, dither: tru
 const defaultMp4: Mp4Options = { format: 'mp4', crf: 20, maxWidth: null, includeAudio: true };
 const defaultWebm: WebmOptions = { format: 'webm', crf: 10, maxWidth: null, includeAudio: true };
 
-export function ExportPanel({ source, start, end, ffmpeg }: Props) {
+export function ExportPanel({ source, start, end, crop, ffmpeg }: Props) {
   const [format, setFormat] = useState<'gif' | 'mp4' | 'webm'>('gif');
   const [gif, setGif] = useState<GifOptions>(defaultGif);
   const [mp4, setMp4] = useState<Mp4Options>(defaultMp4);
@@ -35,7 +36,7 @@ export function ExportPanel({ source, start, end, ffmpeg }: Props) {
 
   async function onExport() {
     const options: ExportOptions = format === 'gif' ? gif : format === 'mp4' ? mp4 : webm;
-    const out = await ffmpeg.run({ file: source.file, fileName: source.name, start, end, options });
+    const out = await ffmpeg.run({ file: source.file, fileName: source.name, start, end, options, crop });
     if (out) {
       setResult((prev) => {
         if (prev) URL.revokeObjectURL(prev.url);
@@ -78,14 +79,16 @@ export function ExportPanel({ source, start, end, ffmpeg }: Props) {
             />
           </label>
           <label>
-            Width (px)
+            Width (px, blank = original)
             <input
               type="number"
               min={120}
               max={1280}
               step={10}
-              value={gif.width}
-              onChange={(e) => setGif({ ...gif, width: Number(e.target.value) })}
+              value={gif.width ?? ''}
+              onChange={(e) =>
+                setGif({ ...gif, width: e.target.value === '' ? null : Number(e.target.value) })
+              }
             />
           </label>
           <label className="checkbox">

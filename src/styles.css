@@ -209,12 +209,64 @@ button.link {
 }
 
 /* --- Editor --- */
-.editor video {
+.stage {
+  position: relative;
+}
+
+/* display:block removes the inline baseline gap so .stage hugs the video and the
+   crop overlay aligns exactly. object-fit stays the default `fill`: the overlay
+   maps 1:1 to source fractions only while the frame fills its box. */
+.stage video {
+  display: block;
   width: 100%;
   border-radius: 8px;
   background: #000;
   max-height: 50vh;
 }
+
+/* Crop selector overlay, sized to exactly cover the video. */
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  /* Block text selection so a drag can't get hijacked mid-gesture. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+/* The huge spread box-shadow dims everything OUTSIDE the box; overflow:hidden on
+   the overlay clips it to the video. Interior stays clear for a bright preview. */
+.crop-selection {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  background: rgba(91, 140, 255, 0.12);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  cursor: move;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  background: var(--accent);
+  border: 1px solid #fff;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.h-nw { left: 0; top: 0; cursor: nwse-resize; }
+.h-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.h-sw { left: 0; top: 100%; cursor: nesw-resize; }
+.h-se { left: 100%; top: 100%; cursor: nwse-resize; }
+.h-n { left: 50%; top: 0; cursor: ns-resize; }
+.h-s { left: 50%; top: 100%; cursor: ns-resize; }
+.h-w { left: 0; top: 50%; cursor: ew-resize; }
+.h-e { left: 100%; top: 50%; cursor: ew-resize; }
 
 .timeline {
   margin: 14px 0 6px;
@@ -295,6 +347,60 @@ button.link {
   gap: 6px;
   color: var(--muted);
   font-size: 14px;
+}
+
+/* Transport: skip-to-start / prev-frame / play / next-frame / skip-to-end. */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-btn {
+  min-width: 40px;
+  padding: 8px 10px;
+  line-height: 1;
+  text-align: center;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.field select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+/* Crop aspect-ratio radios + clear button. */
+.crop-controls {
+  margin-top: 4px;
+}
+
+.crop-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.crop-ratios {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
 }
 
 /* --- Export --- */
